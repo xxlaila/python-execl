@@ -11,7 +11,7 @@ from builtins import int
 import uuid
 from datetime import datetime
 
-def importExcelToMysql(cur, path):
+def ReadExeclFiles(path):
     ### openpyxl版本
     # 读取excel文件
     workbook = load_workbook(path)
@@ -20,8 +20,12 @@ def importExcelToMysql(cur, path):
     # 获得第一张表
     worksheet = workbook.get_sheet_by_name(sheets[0])
 
+    return worksheet
+
+def import_database(cur, data):
+
     # 将表中每一行数据读到 sqlstr 数组中
-    for row in worksheet.rows:
+    for row in data.rows:
 
         sqlstr = []
 
@@ -35,7 +39,11 @@ def importExcelToMysql(cur, path):
         # 将每行数据存到数据库中
         ## 数据中心
         valuestr = str(sqlstr[0])
-        cur.execute("insert into scphci_datacenter(id, name, address, phone, domain, comment, date_created, date_updated, created_by) values(%s, %s, 'null', 'null', 'null', '新增',%s, %s, 'admin')", (suid, valuestr, now, now))
+        old_data = cur.execute("select * from scphci_datacenter where name='%s' " % valuestr)
+        if int(old_data) == 0:
+            cur.execute("insert into scphci_datacenter(id, name, address, phone, domain, comment, date_created, date_updated, created_by) values(%s, %s, 'null', 'null', 'null', '新增',%s, %s, 'admin')", (suid, valuestr, now, now))
+        else:
+            cur.execute("update scphci_datacenter set address='%s', date_updated='%s' where name='%s'" % (str(sqlstr[1]), now, valuestr))
 
 
 # 输出数据库中内容
@@ -56,14 +64,13 @@ if __name__ == '__main__':
     conn = pymysql.connect(host='1.1.1.1', user='root', passwd='123456', port=3306, charset='utf8')
     # 创建游标链接
     cur = conn.cursor()
-
     # 新建一个database
     # 选择 students 这个数据库
     cur.execute("use sre")
-
+    execl_data = ReadExeclFiles("./files/List.xlsx")
     # 将 excel 中的数据导入 数据库中
     try:
-        importExcelToMysql(cur, "./files/List.xlsx")
+        import_database(cur, execl_data)
         readTable(cur)
     except Exception as e:
         # 发生错误时回滚
